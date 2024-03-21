@@ -1027,6 +1027,7 @@ __pycache__
 *.pyc
 dist/
 node_modules/
+_build/
 endef
 
 define HTML_FOOTER
@@ -1994,20 +1995,27 @@ reveal-init-default: webpack-reveal-init
 	npm install reveal.js
 	jq '.scripts += {"build": "webpack"}' package.json > tmp.json && mv tmp.json package.json
 
-sphinx-init-default:
-	$(MAKE) sphinx-install
+sphinx-init-default: sphinx-install
 	sphinx-quickstart -q -p $(PROJECT_NAME) -a $(USER) -v 0.0.1 $(RANDIR)
-	mv $(RANDIR)/* .
-	rmdir $(RANDIR)
+	$(COPY_DIR) $(RANDIR)/* .
+	$(DEL_DIR) $(RANDIR)
+	$(GIT_ADD) index.rst
+	$(GIT_ADD) conf.py
+	$(DEL_FILE) make.bat
+	git checkout Makefile
+	$(MAKE) gitignore
 
 sphinx-init-theme-default:
 	$(ADD_DIR) $(PROJECT_NAME)_theme
 	$(ADD_FILE) theme.conf
+	$(GIT_ADD) theme.conf
 	$(ADD_FILE) layout.html
+	$(GIT_ADD) layout.html
 	$(ADD_DIR) static/css
 	$(ADD_FILE) static/css/style.css
 	$(ADD_DIR) static/js
 	$(ADD_FILE) static/js/script.js
+	$(GIT_ADD) static
 
 review-default:
 ifeq ($(UNAME), Darwin)

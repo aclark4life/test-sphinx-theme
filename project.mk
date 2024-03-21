@@ -1,1 +1,1 @@
-PROJECT_NAME := test-sphinx-theme
+PROJECT_NAME := test_sphinx_theme
