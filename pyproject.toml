@@ -9,3 +9,7 @@ readme = "README.md"
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
+
+[project.entry-points."sphinx.html_themes"]
+test_sphinx_theme_theme = "test_sphinx_theme_theme"
+
