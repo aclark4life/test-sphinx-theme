@@ -19,7 +19,7 @@ PROJECT_MAKEFILE := project.mk
 PROJECT_NAME = project-makefile
 PROJECT_DIRS = backend contactpage home privacy siteuser
 
-WAGTAIL_CLEAN_DIRS = home search backend sitepage siteuser privacy frontend contactpage
+WAGTAIL_CLEAN_DIRS = home search backend sitepage siteuser privacy frontend contactpage modelformtest
 WAGTAIL_CLEAN_FILES = README.rst .dockerignore Dockerfile manage.py requirements.txt
 
 REVIEW_EDITOR = subl
@@ -383,6 +383,7 @@ const UserMenu = ({ isAuthenticated, isSuperuser, textColor }) => {
           </a>
           <ul className="dropdown-menu">
             <li><a className="dropdown-item" href="/user/profile">Profile</a></li>
+            <li><a className="dropdown-item" href="/modelformtest/test-models">Model Form Test</a></li>
             {isSuperuser ? (
               <>
                 <li><hr className="dropdown-divider"></hr></li>
@@ -674,6 +675,9 @@ define HOME_PAGE_TEMPLATE
 {% endblock %}
 endef
 
+define INDEX_HTML
+<h1>Hello world</h1>
+endef
 
 define JENKINS_FILE
 pipeline {
@@ -777,6 +781,7 @@ urlpatterns = [
     path('wagtail/', include(wagtailadmin_urls)),
     path('user/', include('siteuser.urls')),
     path('search/', include('search.urls')),
+    path('modelformtest/', include('modelformtest.urls')),
 ]
 
 if settings.DEBUG:
@@ -1137,6 +1142,132 @@ define HTML_OFFCANVAS
 </div>
 endef
 
+define MODEL_FORM_TEST_MODEL
+from django.db import models
+from django.shortcuts import reverse
+
+class TestModel(models.Model):
+    name = models.CharField(max_length=100, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    age = models.IntegerField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name or f"test-model-{self.pk}"
+
+    def get_absolute_url(self):
+        return reverse('test_model_detail', kwargs={'pk': self.pk})
+endef
+
+define MODEL_FORM_TEST_ADMIN
+from django.contrib import admin
+from .models import TestModel
+
+@admin.register(TestModel)
+class TestModelAdmin(admin.ModelAdmin):
+    pass
+endef
+
+define MODEL_FORM_TEST_VIEWS
+from django.views.generic import ListView, CreateView, UpdateView, DetailView
+from .models import TestModel
+from .forms import TestModelForm
+
+
+class TestModelListView(ListView):
+    model = TestModel
+    template_name = "test_model_list.html"
+    context_object_name = "test_models"
+
+
+class TestModelCreateView(CreateView):
+    model = TestModel
+    form_class = TestModelForm
+    template_name = "test_model_form.html"
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class TestModelUpdateView(UpdateView):
+    model = TestModel
+    form_class = TestModelForm
+    template_name = "test_model_form.html"
+
+
+class TestModelDetailView(DetailView):
+    model = TestModel
+    template_name = "test_model_detail.html"
+    context_object_name = "test_model"
+endef
+
+define MODEL_FORM_TEST_FORMS
+from django import forms
+from .models import TestModel
+
+class TestModelForm(forms.ModelForm):
+    class Meta:
+        model = TestModel
+        fields = ['name', 'email', 'age', 'is_active']  # Add or remove fields as needed
+endef
+
+define MODEL_FORM_TEST_TEMPLATE_FORM
+{% extends 'base.html' %}
+{% block content %}
+    <h1>{% if form.instance.pk %}Update Test Model{% else %}Create Test Model{% endif %}</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Save</button>
+    </form>
+{% endblock %}
+endef
+
+define MODEL_FORM_TEST_TEMPLATE_DETAIL
+{% extends 'base.html' %}
+{% block content %}
+    <h1>Test Model Detail: {{ test_model.name }}</h1>
+    <p>Name: {{ test_model.name }}</p>
+    <p>Email: {{ test_model.email }}</p>
+    <p>Age: {{ test_model.age }}</p>
+    <p>Active: {{ test_model.is_active }}</p>
+    <p>Created At: {{ test_model.created_at }}</p>
+    <a href="{% url 'test_model_update' test_model.pk %}">Edit Test Model</a>
+{% endblock %}
+endef
+
+define MODEL_FORM_TEST_TEMPLATE_LIST
+{% extends 'base.html' %}
+{% block content %}
+    <h1>Test Models List</h1>
+    <ul>
+        {% for test_model in test_models %}
+            <li><a href="{% url 'test_model_detail' test_model.pk %}">{{ test_model.name }}</a></li>
+        {% endfor %}
+    </ul>
+    <a href="{% url 'test_model_create' %}">Create New Test Model</a>
+{% endblock %}
+endef
+
+define MODEL_FORM_TEST_URLS
+from django.urls import path
+from .views import (
+    TestModelListView,
+    TestModelCreateView,
+    TestModelUpdateView,
+    TestModelDetailView,
+)
+
+urlpatterns = [
+    path('test-models/', TestModelListView.as_view(), name='test_model_list'),
+    path('test-models/create/', TestModelCreateView.as_view(), name='test_model_create'),
+    path('test-models/<int:pk>/update/', TestModelUpdateView.as_view(), name='test_model_update'),
+    path('test-models/<int:pk>/', TestModelDetailView.as_view(), name='test_model_detail'),
+]
+endef
+
 define PRIVACY_PAGE_MODEL
 from wagtail.models import Page
 from wagtail.admin.panels import FieldPanel
@@ -1426,7 +1557,7 @@ module.exports = {
 };
 endef
 
-define WEBPACK_CONFIG_REVEAL_JS
+define WEBPACK_REVEAL_CONFIG_JS
 const path = require('path');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
@@ -1440,7 +1571,7 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.css$/,
+        test: /\.css$$/,
         use: [MiniCssExtractPlugin.loader, 'css-loader'],
       },
     ],
@@ -1467,23 +1598,26 @@ define WEBPACK_INDEX_HTML
 </html>
 endef
 
-define WEBPACK_INDEX_REVEAL_HTML
+define WEBPACK_REVEAL_INDEX_HTML
 <!DOCTYPE html>
 <html>
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Pillow + ASWF</title>
+        <title>Project Makefile</title>
         <link rel="stylesheet" href="dist/bundle.css">
     </head>
     <div class="reveal">
         <div class="slides">
-            <!-- Slide 1: Title Slide -->
             <section>
-				Slide 1
-			</section>
-		</div>
-	</div>
+                Slide 1: Draw some circles
+            </section>
+            <section>
+                Slide 2: Draw the rest of the owl
+            </section>
+        </div>
+    </div>
+    <script src="dist/bundle.js"></script>
 </html>
 endef
 
@@ -1492,9 +1626,12 @@ const message = "Hello, World!";
 console.log(message);
 endef
 
-define WEBPACK_INDEX_REVEAL_JS
-const message = "Hello, World!";
-console.log(message);
+define WEBPACK_REVEAL_INDEX_JS
+import 'reveal.js/dist/reveal.css';
+import 'reveal.js/dist/theme/black.css';
+import Reveal from 'reveal.js';
+import RevealNotes from 'reveal.js/plugin/notes/notes.js';
+Reveal.initialize({ slideNumber: true, plugins: [ RevealNotes ]});
 endef
 
 # ------------------------------------------------------------------------------  
@@ -1529,8 +1666,17 @@ export HOME_PAGE_TEMPLATE
 export HTML_FOOTER
 export HTML_HEADER
 export HTML_OFFCANVAS
+export INDEX_HTML
 export INTERNAL_IPS
 export JENKINS_FILE
+export MODEL_FORM_TEST_ADMIN
+export MODEL_FORM_TEST_FORMS
+export MODEL_FORM_TEST_MODEL
+export MODEL_FORM_TEST_URLS
+export MODEL_FORM_TEST_VIEWS
+export MODEL_FORM_TEST_TEMPLATE_DETAIL
+export MODEL_FORM_TEST_TEMPLATE_FORM
+export MODEL_FORM_TEST_TEMPLATE_LIST
 export PRIVACY_PAGE_MODEL
 export REST_FRAMEWORK
 export FRONTEND_CONTEXT_INDEX
@@ -1554,11 +1700,11 @@ export THEME_BLUE
 export THEME_TOGGLER
 export TINYMCE_JS
 export WEBPACK_CONFIG_JS
-export WEBPACK_CONFIG_REVEAL_JS
 export WEBPACK_INDEX_HTML
-export WEBPACK_INDEX_REVEAL_HTML
 export WEBPACK_INDEX_JS
-export WEBPACK_INDEX_REVEAL_JS
+export WEBPACK_REVEAL_CONFIG_JS
+export WEBPACK_REVEAL_INDEX_HTML
+export WEBPACK_REVEAL_INDEX_JS
 
 # ------------------------------------------------------------------------------  
 # Rules
@@ -1724,6 +1870,21 @@ django-migrations-default:
 
 django-migrations-show-default:
 	python manage.py showmigrations
+
+django-model-form-test-default:
+	python manage.py startapp modelformtest
+	@echo "$$MODEL_FORM_TEST_ADMIN" > modelformtest/admin.py
+	@echo "$$MODEL_FORM_TEST_FORMS" > modelformtest/forms.py
+	@echo "$$MODEL_FORM_TEST_MODEL" > modelformtest/models.py
+	@echo "$$MODEL_FORM_TEST_URLS" > modelformtest/urls.py
+	@echo "$$MODEL_FORM_TEST_VIEWS" > modelformtest/views.py
+	$(ADD_DIR) modelformtest/templates/modelformtest
+	@echo "$$MODEL_FORM_TEST_TEMPLATE_DETAIL" > modelformtest/templates/test_model_detail.html
+	@echo "$$MODEL_FORM_TEST_TEMPLATE_FORM" > modelformtest/templates/test_model_form.html
+	@echo "$$MODEL_FORM_TEST_TEMPLATE_LIST" > modelformtest/templates/modelformtest/testmodel_list.html
+	@echo "INSTALLED_APPS.append('modelformtest')" >> $(SETTINGS)
+	python manage.py makemigrations
+	$(GIT_ADD) modelformtest
 
 django-serve-default:
 	cd frontend; npm run watch &
@@ -1896,32 +2057,35 @@ help-default:
             | xargs | tr ' ' '\n' \
             | awk '{printf "%s\n", $$0}' ; done | less # http://stackoverflow.com/a/26339924
 
+index-default:
+	@echo "$$INDEX_HTML" > index.html
+
 jenkins-init-default:
 	@echo "$$JENKINS_FILE" > Jenkinsfile
 
 lint-default:
 	-ruff check -v --fix
 	-ruff format -v
-	djlint --reformat --format-css --format-js .
+	-djlint --reformat --format-css --format-js .
 
 make-default:
 	$(GIT_ADD) Makefile
-	-git commit -a -m "Add/update project-makefile files"
+	-git commit Makefile -m "Add/update project-makefile files"
 	-git push
 
 pip-freeze-default:
 	$(ENSURE_PIP)
 	python -m pip freeze | sort > $(TMPDIR)/requirements.txt
 	mv -f $(TMPDIR)/requirements.txt .
-	$(GIT_ADD) requirements.txt
+	-$(GIT_ADD) requirements.txt
 
 pip-init-default:
 	touch requirements.txt
-	$(GIT_ADD) requirements.txt
+	-$(GIT_ADD) requirements.txt
 
 pip-init-test-default:
 	@echo "$$REQUIREMENTS_TEST" > requirements-test.txt
-	$(GIT_ADD) requirements-test.txt
+	-$(GIT_ADD) requirements-test.txt
 
 pip-install-default:
 	$(ENSURE_PIP)
@@ -1991,9 +2155,25 @@ readme-open-default:
 readme-build-default:
 	rst2pdf README.rst
 
+reveal-build-default:
+	npm run build
+
 reveal-init-default: webpack-reveal-init
-	npm install reveal.js
-	jq '.scripts += {"build": "webpack"}' package.json > tmp.json && mv tmp.json package.json
+	npm install \
+       css-loader \
+       mini-css-extract-plugin \
+       reveal.js \
+       style-loader
+	jq '.scripts += {"build": "webpack"}' package.json > \
+        $(TMPDIR)/tmp.json && mv $(TMPDIR)/tmp.json package.json
+	jq '.scripts += {"start": "webpack serve --mode development --port 8000 --static"}' package.json > \
+        $(TMPDIR)/tmp.json && mv $(TMPDIR)/tmp.json package.json
+	jq '.scripts += {"watch": "webpack watch --mode development"}' package.json > \
+        $(TMPDIR)/tmp.json && mv $(TMPDIR)/tmp.json package.json
+
+reveal-serve-default:
+	npm run watch &
+	python -m http.server
 
 sphinx-init-default: sphinx-install
 	sphinx-quickstart -q -p $(PROJECT_NAME) -a $(USER) -v 0.0.1 $(RANDIR)
@@ -2031,7 +2211,7 @@ sphinx-install-default:
 	echo "Sphinx\n" > requirements.txt
 	@$(MAKE) pip-install
 	@$(MAKE) pip-freeze
-	$(GIT_ADD) requirements.txt
+	-$(GIT_ADD) requirements.txt
 
 sphinx-build-default:
 	sphinx-build -b html -d _build/doctrees . _build/html
@@ -2104,6 +2284,8 @@ wagtail-init-default: db-init wagtail-install wagtail-start
 	@echo "$$DOCKERFILE" > Dockerfile
 	export SETTINGS=backend/settings/base.py DEV_SETTINGS=backend/settings/dev.py; \
 		$(MAKE) django-settings
+	export SETTINGS=backend/settings/base.py; \
+		$(MAKE) django-model-form-test
 	export URLS=urls.py; \
 		$(MAKE) django-url-patterns
 	$(GIT_ADD) backend
@@ -2210,13 +2392,13 @@ webpack-init-default: npm-init
 	$(MAKE) gitignore
 
 webpack-reveal-init-default: npm-init
-	@echo "$$WEBPACK_CONFIG_REVEAL_JS" > webpack.config.js
+	@echo "$$WEBPACK_REVEAL_CONFIG_JS" > webpack.config.js
 	$(GIT_ADD) webpack.config.js
 	npm install --save-dev webpack webpack-cli webpack-dev-server
 	$(ADD_DIR) src/
-	@echo "$$WEBPACK_INDEX_REVEAL_JS" > src/index.js
+	@echo "$$WEBPACK_REVEAL_INDEX_JS" > src/index.js
 	$(GIT_ADD) src/index.js
-	@echo "$$WEBPACK_INDEX_REVEAL_HTML" > index.html
+	@echo "$$WEBPACK_REVEAL_INDEX_HTML" > index.html
 	$(GIT_ADD) index.html
 	$(MAKE) gitignore
 
